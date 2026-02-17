@@ -36,18 +36,24 @@ const fs = require('fs');
 const path = require('path');
 
 const CONFIG_PATH = path.join(__dirname, 'config.json');
+const DEFAULT_CONFIG = { streamers: [], channelId: null, roleId: null, auditChannelId: null, liveMessageIds: {}, cooldownMinutes: 5 };
 
-// Load config with graceful fallback
+let configCache = null;
+
 function loadConfig() {
+  if (configCache) return configCache;
   try {
-    return JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
+    configCache = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
+    return configCache;
   } catch (e) {
-    return { streamers: [], channelId: null, roleId: null, auditChannelId: null, liveMessageIds: {}, cooldownMinutes: 5 };
+    configCache = { ...DEFAULT_CONFIG };
+    return configCache;
   }
 }
 
 function saveConfig(config) {
   fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2), 'utf8');
+  configCache = config;
 }
 
 function log(level, message, data = null) {
@@ -64,6 +70,13 @@ const client = new Client({
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildVoiceStates]
 });
 
+const AUDIT_VALUE_MAX = 200;
+
+function truncate(val) {
+  const s = String(val ?? '');
+  return s.length > AUDIT_VALUE_MAX ? s.slice(0, AUDIT_VALUE_MAX - 1) + '…' : s;
+}
+
 async function sendAuditLog(interaction, success = true) {
   const config = loadConfig();
   const auditChannelId = config.auditChannelId;
@@ -74,7 +87,7 @@ async function sendAuditLog(interaction, success = true) {
 
   const opts = interaction.options.data.map(o => {
     const val = o.user ? o.user.tag : o.role ? o.role.name : o.channel ? `#${o.channel.name}` : o.value;
-    return `${o.name}: ${val}`;
+    return `${o.name}: ${truncate(val)}`;
   }).join('\n');
 
   const embed = new EmbedBuilder()
@@ -96,6 +109,12 @@ const liveState = new Map();
 // Cooldown: streamer -> timestamp until we can send again (survives going offline)
 const cooldownUntil = new Map();
 let hasLoggedNoConfig = false;
+
+function clearStreamerState(login) {
+  const key = login.toLowerCase();
+  liveState.delete(key);
+  cooldownUntil.delete(key);
+}
 
 function buildEmbed(streamInfo) {
   const thumb = (streamInfo.thumbnail_url || '').replace('{width}', '1280').replace('{height}', '720');
@@ -213,12 +232,16 @@ async function checkStreams() {
     const cooldownMin = config.cooldownMinutes || 5;
     const cooldownMs = cooldownMin * 60 * 1000;
 
-    for (const stream of streams || []) {
+    const streamInfos = await twitch.getStreamInfos(clientId, clientSecret, streams || []);
+    let configDirty = false;
+
+    for (let i = 0; i < (streams || []).length; i++) {
+      const stream = streams[i];
+      const streamInfo = streamInfos[i] || await twitch.getStreamInfo(clientId, clientSecret, stream);
       const login = stream.user_login.toLowerCase();
       const state = liveState.get(login);
-      const streamInfo = await twitch.getStreamInfo(clientId, clientSecret, stream);
-
       const messageId = config.liveMessageIds?.[login];
+
       if (state && messageId) {
         await editLiveMessage(client, channelId, messageId, streamInfo);
         log('info', `Updated live embed for ${stream.user_name}`);
@@ -233,7 +256,7 @@ async function checkStreams() {
           cooldownUntil.set(login, Date.now() + cooldownMs);
           config.liveMessageIds = config.liveMessageIds || {};
           config.liveMessageIds[login] = msgId;
-          saveConfig(config);
+          configDirty = true;
           log('info', `Sent live notification for ${stream.user_name}`);
         }
       }
@@ -244,11 +267,13 @@ async function checkStreams() {
         liveState.delete(login);
         if (config.liveMessageIds && config.liveMessageIds[login]) {
           delete config.liveMessageIds[login];
-          saveConfig(config);
+          configDirty = true;
         }
         log('info', `Stream ended for ${login}, reset notification state`);
       }
     }
+
+    if (configDirty) saveConfig(config);
 
   } catch (err) {
     log('error', 'Stream check failed', err.message);
@@ -271,16 +296,21 @@ async function registerCommands() {
     if (cmd.data) commands.push(cmd.data);
   }
 
-  const rest = client.rest;
-  await rest.put(
-    `/applications/${client.user.id}/guilds/${guildId}/commands`,
-    { body: commands }
-  );
-  log('info', `Registered ${commands.length} slash commands`);
+  try {
+    const rest = client.rest;
+    await rest.put(
+      `/applications/${client.user.id}/guilds/${guildId}/commands`,
+      { body: commands }
+    );
+    log('info', `Registered ${commands.length} slash commands`);
+  } catch (err) {
+    log('error', 'Failed to register slash commands', err.message);
+  }
 }
 
 client.once(Events.ClientReady, async () => {
   log('info', `Logged in as ${client.user.tag}`);
+  twitch.setLogger(log);
 
   await registerCommands();
 
@@ -308,15 +338,27 @@ client.on('interactionCreate', async (interaction) => {
   let success = true;
   try {
     const cmd = require(filePath);
-    if (cmd.execute) await cmd.execute(interaction, { loadConfig, saveConfig, log });
+    if (cmd.execute) await cmd.execute(interaction, { loadConfig, saveConfig, log, clearStreamerState });
   } catch (err) {
     success = false;
     log('error', `Command ${interaction.commandName} failed`, err.message);
-    await interaction.reply({ content: 'An error occurred.', flags: MessageFlags.Ephemeral }).catch(() => {});
+    const payload = { content: 'An error occurred.', flags: MessageFlags.Ephemeral };
+    await interaction.editReply(payload).catch(() => interaction.reply(payload).catch(() => {}));
   } finally {
     sendAuditLog(interaction, success);
   }
 });
+
+const music = require('./music.js');
+
+function shutdown() {
+  log('info', 'Shutting down...');
+  music.shutdown?.();
+  process.exit(0);
+}
+
+process.on('SIGINT', shutdown);
+process.on('SIGTERM', shutdown);
 
 client.login(token).catch(err => {
   log('error', 'Login failed', err.message);

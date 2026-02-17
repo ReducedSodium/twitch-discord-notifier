@@ -5,7 +5,24 @@
 
 let accessToken = null;
 let tokenExpiresAt = null;
+let logger = (level, message) => {
+  const ts = new Date().toISOString();
+  const prefix = `[${ts}] [Twitch/${level.toUpperCase()}]`;
+  if (level === 'error') console.error(prefix, message);
+  else console.log(prefix, message);
+};
+
+function setLogger(fn) {
+  if (typeof fn === 'function') logger = fn;
+}
+
 const TWITCH_API_BASE = 'https://api.twitch.tv/helix';
+
+function handleApiError(response, body) {
+  if (response.status === 401) throw new Error('Twitch API: Invalid or expired token (check CLIENT_ID and CLIENT_SECRET)');
+  if (response.status === 429) throw new Error('Twitch API: Rate limit exceeded');
+  throw new Error(`Twitch API error: ${response.status} ${body}`);
+}
 
 /**
  * Get OAuth app access token (or refresh if expired)
@@ -32,7 +49,7 @@ async function getAccessToken(clientId, clientSecret) {
 
   accessToken = data.access_token;
   tokenExpiresAt = now + (data.expires_in * 1000);
-  log('info', 'Twitch OAuth token refreshed');
+  logger('info', 'Twitch OAuth token refreshed');
   return accessToken;
 }
 
@@ -58,7 +75,7 @@ async function getStreams(clientId, clientSecret, usernames) {
 
   if (!response.ok) {
     const err = await response.text();
-    throw new Error(`Twitch API error: ${response.status} ${err}`);
+    handleApiError(response, err);
   }
 
   const data = await response.json();
@@ -87,7 +104,7 @@ async function getUsers(clientId, clientSecret, usernames) {
 
   if (!response.ok) {
     const err = await response.text();
-    throw new Error(`Twitch API error: ${response.status} ${err}`);
+    handleApiError(response, err);
   }
 
   const data = await response.json();
@@ -116,7 +133,7 @@ async function getGames(clientId, clientSecret, gameIds) {
 
   if (!response.ok) {
     const err = await response.text();
-    throw new Error(`Twitch API error: ${response.status} ${err}`);
+    handleApiError(response, err);
   }
 
   const data = await response.json();
@@ -146,16 +163,24 @@ async function getStreamInfo(clientId, clientSecret, stream) {
 }
 
 /**
- * Simple timestamped logger
+ * Build stream infos for multiple streams in one batch (single getGames call)
  */
-function log(level, message) {
-  const ts = new Date().toISOString();
-  const prefix = `[${ts}] [Twitch/${level.toUpperCase()}]`;
-  if (level === 'error') {
-    console.error(prefix, message);
-  } else {
-    console.log(prefix, message);
-  }
+async function getStreamInfos(clientId, clientSecret, streams) {
+  if (!streams || streams.length === 0) return [];
+  const gameIds = [...new Set(streams.map(s => s.game_id).filter(Boolean))];
+  const games = await getGames(clientId, clientSecret, gameIds);
+  return streams.map(stream => ({
+    id: stream.id,
+    user_id: stream.user_id,
+    user_login: stream.user_login,
+    user_name: stream.user_name,
+    title: stream.title || 'Untitled Broadcast',
+    game_id: stream.game_id,
+    game_name: games.get(stream.game_id) || 'Unknown',
+    viewer_count: stream.viewer_count || 0,
+    thumbnail_url: stream.thumbnail_url || '',
+    started_at: stream.started_at
+  }));
 }
 
 module.exports = {
@@ -164,5 +189,6 @@ module.exports = {
   getUsers,
   getGames,
   getStreamInfo,
-  log
+  getStreamInfos,
+  setLogger
 };

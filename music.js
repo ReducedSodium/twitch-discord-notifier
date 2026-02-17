@@ -43,7 +43,11 @@ function createYtDlpStream(url) {
   ytdlp.on('error', () => ffmpeg.kill());
   ffmpeg.on('error', () => ytdlp.kill());
 
-  return ffmpeg.stdout;
+  const kill = () => {
+    try { ytdlp.kill(); } catch (_) {}
+    try { ffmpeg.kill(); } catch (_) {}
+  };
+  return { stream: ffmpeg.stdout, kill };
 }
 
 async function resolveQuery(query) {
@@ -59,12 +63,19 @@ async function resolveQuery(query) {
       query.trim()
     ], { stdio: ['ignore', 'pipe', 'pipe'] });
 
+    let stderr = '';
+    proc.stderr.on('data', c => { stderr += c; });
+
     const out = await new Promise((resolve, reject) => {
       let data = '';
       proc.stdout.on('data', c => data += c);
       proc.on('close', (code) => {
-        if (code !== 0) reject(new Error('Failed to get video info'));
-        else resolve(data.trim());
+        if (code !== 0) {
+          const msg = stderr.trim() || 'Failed to get video info';
+          reject(new Error(msg.split('\n').pop().replace(/^ERROR: /, '').slice(0, 200)));
+        } else {
+          resolve(data.trim());
+        }
       });
       proc.on('error', reject);
     });
@@ -125,12 +136,17 @@ function getOrCreateQueue(guildId, voiceChannel, textChannel) {
     player,
     tracks: [],
     current: null,
+    currentKill: null,
     textChannel,
     voiceChannel
   };
   queues.set(guildId, queue);
 
   player.on(AudioPlayerStatus.Idle, () => {
+    if (queue.currentKill) {
+      queue.currentKill();
+      queue.currentKill = null;
+    }
     if (queue.tracks.length > 0) {
       playNext(guildId);
     } else {
@@ -145,6 +161,10 @@ function getOrCreateQueue(guildId, voiceChannel, textChannel) {
   });
 
   connection.on(VoiceConnectionStatus.Destroyed, () => {
+    if (queue.currentKill) {
+      queue.currentKill();
+      queue.currentKill = null;
+    }
     queues.delete(guildId);
   });
 
@@ -159,7 +179,8 @@ async function playNext(guildId) {
   q.current = track;
 
   try {
-    const stream = createYtDlpStream(track.url);
+    const { stream, kill } = createYtDlpStream(track.url);
+    q.currentKill = kill;
     const resource = createAudioResource(stream, { inputType: StreamType.OggOpus });
     q.player.play(resource);
   } catch (err) {
@@ -180,7 +201,8 @@ async function addTrack(guildId, voiceChannel, textChannel, query) {
 
     if (q.player.state.status === AudioPlayerStatus.Idle && !q.current) {
       q.current = track;
-      const stream = createYtDlpStream(track.url);
+      const { stream, kill } = createYtDlpStream(track.url);
+      q.currentKill = kill;
       const resource = createAudioResource(stream, { inputType: StreamType.OggOpus });
       q.player.play(resource);
       return { found: true, track, playing: true };
@@ -229,4 +251,12 @@ function getQueue(guildId) {
   return queues.get(guildId);
 }
 
-module.exports = { addTrack, skip, stop, pause, resume, getQueue };
+function shutdown() {
+  for (const [guildId, q] of queues) {
+    if (q.currentKill) q.currentKill();
+    q.connection.destroy();
+  }
+  queues.clear();
+}
+
+module.exports = { addTrack, skip, stop, pause, resume, getQueue, shutdown };

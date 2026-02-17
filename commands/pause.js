@@ -7,10 +7,11 @@ module.exports = {
     .setDescription('Pause the current song'),
 
   async execute(interaction) {
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
     const result = music.pause(interaction.guild.id);
     if (!result.ok) {
-      return interaction.reply({ content: `❌ ${result.msg}`, flags: MessageFlags.Ephemeral });
+      return interaction.editReply({ content: `❌ ${result.msg}` });
     }
-    await interaction.reply({ content: '⏸️ Paused.' });
+    await interaction.editReply({ content: '⏸️ Paused.' });
   }
 };

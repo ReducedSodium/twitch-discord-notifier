@@ -19,6 +19,14 @@ module.exports = {
       });
     }
 
+    const q = music.getQueue(interaction.guild.id);
+    if (q && q.voiceChannel && q.voiceChannel.id !== voiceChannel.id) {
+      return interaction.reply({
+        content: `You must be in **${q.voiceChannel.name}** with the bot to add to the queue.`,
+        flags: MessageFlags.Ephemeral
+      });
+    }
+
     await interaction.deferReply();
 
     const query = interaction.options.getString('query');

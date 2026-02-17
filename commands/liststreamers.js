@@ -1,9 +1,10 @@
-const { SlashCommandBuilder, MessageFlags } = require('discord.js');
+const { SlashCommandBuilder, MessageFlags, PermissionFlagsBits } = require('discord.js');
 
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('liststreamers')
-    .setDescription('List all Twitch streamers being monitored'),
+    .setDescription('List all Twitch streamers being monitored')
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
 
   async execute(interaction, { loadConfig, log }) {
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });

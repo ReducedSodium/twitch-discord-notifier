@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, MessageFlags } = require('discord.js');
+const { SlashCommandBuilder, MessageFlags, PermissionFlagsBits } = require('discord.js');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -7,7 +7,8 @@ module.exports = {
     .addRoleOption(opt =>
       opt.setName('role')
         .setDescription('Role to ping')
-        .setRequired(true)),
+        .setRequired(true))
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
 
   async execute(interaction, { loadConfig, saveConfig, log }) {
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });

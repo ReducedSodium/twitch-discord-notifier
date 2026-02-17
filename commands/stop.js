@@ -7,10 +7,11 @@ module.exports = {
     .setDescription('Stop music and disconnect'),
 
   async execute(interaction) {
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
     const result = music.stop(interaction.guild.id);
     if (!result.ok) {
-      return interaction.reply({ content: `❌ ${result.msg}`, flags: MessageFlags.Ephemeral });
+      return interaction.editReply({ content: `❌ ${result.msg}` });
     }
-    await interaction.reply({ content: '⏹️ Stopped and disconnected.' });
+    await interaction.editReply({ content: '⏹️ Stopped and disconnected.' });
   }
 };

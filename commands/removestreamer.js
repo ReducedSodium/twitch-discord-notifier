@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, MessageFlags } = require('discord.js');
+const { SlashCommandBuilder, MessageFlags, PermissionFlagsBits } = require('discord.js');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -7,9 +7,10 @@ module.exports = {
     .addStringOption(opt =>
       opt.setName('username')
         .setDescription('Twitch username')
-        .setRequired(true)),
+        .setRequired(true))
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
 
-  async execute(interaction, { loadConfig, saveConfig, log }) {
+  async execute(interaction, { loadConfig, saveConfig, log, clearStreamerState }) {
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
     const username = interaction.options.getString('username').trim().toLowerCase();
@@ -25,6 +26,7 @@ module.exports = {
     if (config.liveMessageIds && config.liveMessageIds[username]) {
       delete config.liveMessageIds[username];
     }
+    if (clearStreamerState) clearStreamerState(username);
     saveConfig(config);
     log('info', `Removed streamer: ${username}`);
     await interaction.editReply({ content: `Removed **${username}** from the notification list.` });

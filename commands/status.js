@@ -21,6 +21,7 @@ module.exports = {
     const roleId = config.roleId || process.env.ROLE_ID?.trim();
     const hasTwitch = !!(process.env.CLIENT_ID?.trim() && process.env.CLIENT_SECRET?.trim());
 
+    const intervalSec = parseInt(process.env.CHECK_INTERVAL, 10) || 60;
     const lines = [
       '**Bot Status**',
       '',
@@ -29,7 +30,7 @@ module.exports = {
       `**Role:** ${roleId ? `✅ <@&${roleId}>` : '⚪ Optional'}`,
       `**Twitch API:** ${hasTwitch ? '✅ Configured' : '❌ Missing CLIENT_ID or CLIENT_SECRET'}`,
       '',
-      'All checks run every 60 seconds. Go live on Twitch to trigger a notification.'
+      `Stream checks run every **${intervalSec}** second(s). Go live on Twitch to trigger a notification.`
     ];
 
     await interaction.editReply({ content: lines.join('\n') });

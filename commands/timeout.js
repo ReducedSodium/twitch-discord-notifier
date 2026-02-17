@@ -1,4 +1,5 @@
 const { SlashCommandBuilder, MessageFlags, PermissionFlagsBits } = require('discord.js');
+const { logPunishment } = require('../punishments.js');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -16,10 +17,11 @@ module.exports = {
         .setMaxValue(40320))
     .addStringOption(opt =>
       opt.setName('reason')
-        .setDescription('Reason for the timeout'))
+        .setDescription('Reason for the timeout')
+        .setMaxLength(500))
     .setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers),
 
-  async execute(interaction) {
+  async execute(interaction, { loadConfig, saveConfig }) {
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
     const user = interaction.options.getUser('user');
@@ -38,6 +40,12 @@ module.exports = {
 
     try {
       await member.timeout(durationMs, reason);
+      logPunishment(loadConfig, saveConfig, interaction.guild.id, user.id, {
+        type: 'timeout',
+        reason,
+        by: interaction.user.tag,
+        duration: minutes
+      });
       await interaction.editReply({ content: `Timed out **${user.tag}** for ${minutes} minute(s). Reason: ${reason}` });
     } catch (err) {
       await interaction.editReply({ content: `Failed to timeout: ${err.message}` });

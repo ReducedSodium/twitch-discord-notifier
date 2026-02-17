@@ -1,4 +1,5 @@
 const { SlashCommandBuilder, MessageFlags, PermissionFlagsBits } = require('discord.js');
+const { logPunishment } = require('../punishments.js');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -10,7 +11,8 @@ module.exports = {
         .setRequired(true))
     .addStringOption(opt =>
       opt.setName('reason')
-        .setDescription('Reason for the ban'))
+        .setDescription('Reason for the ban')
+        .setMaxLength(500))
     .addIntegerOption(opt =>
       opt.setName('delete_days')
         .setDescription('Delete messages from the last X days (0-7)')
@@ -18,7 +20,7 @@ module.exports = {
         .setMaxValue(7))
     .setDefaultMemberPermissions(PermissionFlagsBits.BanMembers),
 
-  async execute(interaction) {
+  async execute(interaction, { loadConfig, saveConfig }) {
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
     const user = interaction.options.getUser('user');
@@ -32,6 +34,11 @@ module.exports = {
 
     try {
       await interaction.guild.members.ban(user.id, { reason, deleteMessageSeconds: deleteDays * 24 * 60 * 60 });
+      logPunishment(loadConfig, saveConfig, interaction.guild.id, user.id, {
+        type: 'ban',
+        reason,
+        by: interaction.user.tag
+      });
       await interaction.editReply({ content: `Banned **${user.tag}**. Reason: ${reason}` });
     } catch (err) {
       await interaction.editReply({ content: `Failed to ban: ${err.message}` });

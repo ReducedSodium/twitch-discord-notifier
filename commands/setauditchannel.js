@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, MessageFlags, PermissionFlagsBits } = require('discord.js');
+const { SlashCommandBuilder, MessageFlags, PermissionFlagsBits, ChannelType } = require('discord.js');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -6,7 +6,9 @@ module.exports = {
     .setDescription('Set the channel for command audit logs')
     .addChannelOption(opt =>
       opt.setName('channel')
-        .setDescription('Channel for audit logs (leave empty to disable)'))
+        .setDescription('Channel for audit logs (leave empty to disable)')
+        .setRequired(false)
+        .addChannelTypes(ChannelType.GuildText))
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
 
   async execute(interaction, { loadConfig, saveConfig, log }) {

@@ -7,9 +7,10 @@ module.exports = {
     .setDescription('Show the current music queue'),
 
   async execute(interaction) {
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
     const q = music.getQueue(interaction.guild.id);
     if (!q || (!q.current && q.tracks.length === 0)) {
-      return interaction.reply({ content: 'No music playing.', flags: MessageFlags.Ephemeral });
+      return interaction.editReply({ content: 'No music playing.' });
     }
 
     const lines = [];
@@ -26,6 +27,6 @@ module.exports = {
         lines.push(`... and ${q.tracks.length - 10} more`);
       }
     }
-    await interaction.reply({ content: lines.join('\n') || 'Queue is empty.' });
+    await interaction.editReply({ content: lines.join('\n') || 'Queue is empty.' });
   }
 };

@@ -102,25 +102,31 @@ npm start
 
 ## Slash Commands
 
-| Command | Description |
-|---------|-------------|
-| `/addstreamer <username>` | Add a Twitch username to the monitor list |
-| `/removestreamer <username>` | Remove a username from the list |
-| `/liststreamers` | List all monitored streamers |
-| `/setrole <role>` | Set the role to ping when someone goes live |
-| `/setchannel <channel>` | Set the channel for stream notifications |
-| `/status` | Check bot configuration and connection status |
-| `/kick <user>` | Kick a member (requires Kick Members) |
-| `/ban <user>` | Ban a member (requires Ban Members) |
-| `/timeout <user> <minutes>` | Timeout a member (requires Moderate Members) |
-| `/purge <amount>` | Delete recent messages (requires Manage Messages) |
-| `/setauditchannel <channel>` | Set channel for command audit logs (requires Administrator) |
-| `/play <query>` | Play a song from YouTube |
-| `/skip` | Skip current song |
-| `/stop` | Stop and disconnect |
-| `/queue` | Show music queue |
-| `/pause` | Pause playback |
-| `/resume` | Resume playback |
+| Command | Description | Permission |
+|---------|-------------|------------|
+| `/addstreamer <username>` | Add a Twitch username to the monitor list (max 50) | Administrator |
+| `/removestreamer <username>` | Remove a username from the list | Administrator |
+| `/liststreamers` | List all monitored streamers | Administrator |
+| `/setchannel <channel>` | Set the channel for stream notifications | Administrator |
+| `/setrole <role>` | Set the role to ping when someone goes live | Administrator |
+| `/setauditchannel [channel]` | Set channel for command audit logs (omit to disable) | Administrator |
+| `/status` | Check bot configuration and connection status | Anyone |
+| `/kick <user> [reason]` | Kick a member | Kick Members |
+| `/ban <user> [reason]` | Ban a member | Ban Members |
+| `/unban <user_id> [reason]` | Unban a user by ID | Ban Members |
+| `/timeout <user> <minutes> [reason]` | Timeout a member | Moderate Members |
+| `/warn <user> [reason]` | Warn a member (stored in config) | Moderate Members |
+| `/warnings <user>` | List warnings for a member | Moderate Members |
+| `/punishments <user>` | View full punishment history (warn/kick/ban/timeout/unban) | Moderate Members |
+| `/clearwarnings <user>` | Clear all warnings for a member | Moderate Members |
+| `/clearpunishments <user>` | Clear punishment history for a member | Moderate Members |
+| `/purge <amount> [user]` | Delete recent messages (optionally from one user) | Manage Messages |
+| `/play <query>` | Play a song from YouTube (must be in same VC as bot when queue active) | Anyone |
+| `/skip` | Skip current song | Anyone |
+| `/stop` | Stop and disconnect | Anyone |
+| `/queue` | Show music queue | Anyone |
+| `/pause` | Pause playback | Anyone |
+| `/resume` | Resume playback | Anyone |
 
 ## Project Structure
 

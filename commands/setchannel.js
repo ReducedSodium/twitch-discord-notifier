@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, MessageFlags } = require('discord.js');
+const { SlashCommandBuilder, MessageFlags, PermissionFlagsBits, ChannelType } = require('discord.js');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -7,7 +7,9 @@ module.exports = {
     .addChannelOption(opt =>
       opt.setName('channel')
         .setDescription('Channel for notifications')
-        .setRequired(true)),
+        .setRequired(true)
+        .addChannelTypes(ChannelType.GuildText))
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
 
   async execute(interaction, { loadConfig, saveConfig, log }) {
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
