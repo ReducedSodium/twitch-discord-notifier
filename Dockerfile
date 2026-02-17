@@ -1,11 +1,7 @@
 FROM node:20-slim
 
-# FFmpeg + build deps for sodium-native (voice encryption)
-RUN apt-get update && apt-get install -y --no-install-recommends \
-  ffmpeg \
-  python3 \
-  make \
-  g++ \
+# FFmpeg for music playback
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg \
   && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
