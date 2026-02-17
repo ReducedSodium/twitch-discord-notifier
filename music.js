@@ -15,6 +15,9 @@ const {
 
 const queues = new Map(); // guildId -> { connection, player, queue: [{title, url}], current, channel }
 
+// Use android client for search/extraction (often bypasses YouTube bot detection)
+const YT_EXTRACTOR_ARGS = ['--extractor-args', 'youtube:player_client=android'];
+
 function createYtDlpStream(url) {
   const ytdlp = spawn('yt-dlp', [
     '-f', 'bestaudio/best',
@@ -22,6 +25,7 @@ function createYtDlpStream(url) {
     '--no-playlist',
     '--no-warnings',
     '--quiet',
+    ...YT_EXTRACTOR_ARGS,
     url
   ], { stdio: ['ignore', 'pipe', 'pipe'] });
 
@@ -51,6 +55,7 @@ async function resolveQuery(query) {
       '--no-playlist',
       '--no-warnings',
       '--quiet',
+      ...YT_EXTRACTOR_ARGS,
       query.trim()
     ], { stdio: ['ignore', 'pipe', 'pipe'] });
 
@@ -69,21 +74,30 @@ async function resolveQuery(query) {
     return { title: lines[0] || 'Unknown', url: lines[1] || query.trim() };
   }
 
-  const proc = spawn('yt-dlp', [
+  const args = [
     'ytsearch1:' + query,
     '--print', '%(title)s',
     '--print', '%(url)s',
     '--no-playlist',
     '--no-warnings',
-    '--quiet'
-  ], { stdio: ['ignore', 'pipe', 'pipe'] });
+    '--quiet',
+    ...YT_EXTRACTOR_ARGS
+  ];
+  const proc = spawn('yt-dlp', args, { stdio: ['ignore', 'pipe', 'pipe'] });
+
+  let stderr = '';
+  proc.stderr.on('data', c => { stderr += c; });
 
   const out = await new Promise((resolve, reject) => {
     let data = '';
     proc.stdout.on('data', c => data += c);
     proc.on('close', (code) => {
-      if (code !== 0) reject(new Error('Search failed'));
-      else resolve(data.trim());
+      if (code !== 0) {
+        const msg = stderr.trim() || 'Search failed (YouTube may be blocking requests). Try a direct URL.';
+        reject(new Error(msg.split('\n').pop().replace(/^ERROR: /, '').slice(0, 200)));
+      } else {
+        resolve(data.trim());
+      }
     });
     proc.on('error', reject);
   });
