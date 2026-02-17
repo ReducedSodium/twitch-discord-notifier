@@ -5,7 +5,7 @@ A Discord bot that monitors Twitch streamers and sends embed notifications when 
 ## Features
 
 - **Multiple Streamer Support** – Monitor any number of Twitch usernames
-- **Slash Commands** – `/addstreamer`, `/removestreamer`, `/liststreamers`, `/setrole`, `/setchannel`
+- **Slash Commands** – Stream notifier, moderation (`/kick`, `/ban`, `/timeout`, `/purge`), status
 - **Live Update Editing** – Edits the same embed to update viewer count and title instead of spamming messages
 - **Cooldown System** – Prevents duplicate alerts if a streamer rapidly disconnects and reconnects
 - **Config Persistence** – Streamer list and settings stored in `config.json`, auto-loaded on startup
@@ -77,6 +77,7 @@ npm start
    - Embed Links  
    - Mention Everyone (to ping roles)  
    - Use Slash Commands  
+   - Kick Members, Ban Members, Moderate Members, Manage Messages (for moderation commands)  
 5. Copy the generated URL and open it in a browser to invite the bot to your server
 
 ### Getting Guild ID, Channel ID, and Role ID
@@ -105,6 +106,11 @@ npm start
 | `/liststreamers` | List all monitored streamers |
 | `/setrole <role>` | Set the role to ping when someone goes live |
 | `/setchannel <channel>` | Set the channel for stream notifications |
+| `/status` | Check bot configuration and connection status |
+| `/kick <user>` | Kick a member (requires Kick Members) |
+| `/ban <user>` | Ban a member (requires Ban Members) |
+| `/timeout <user> <minutes>` | Timeout a member (requires Moderate Members) |
+| `/purge <amount>` | Delete recent messages (requires Manage Messages) |
 
 ## Project Structure
 
