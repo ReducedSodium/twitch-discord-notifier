@@ -2,7 +2,9 @@ FROM node:20-slim
 
 # FFmpeg + yt-dlp for music (yt-dlp bypasses YouTube bot detection)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-  ffmpeg curl ca-certificates \
+  ca-certificates \
+  && update-ca-certificates \
+  && apt-get install -y --no-install-recommends ffmpeg curl \
   && curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp \
   && chmod +x /usr/local/bin/yt-dlp \
   && rm -rf /var/lib/apt/lists/*
