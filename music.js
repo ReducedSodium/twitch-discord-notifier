@@ -1,19 +1,97 @@
 /**
  * Music player module - handles voice connection, queue, and playback
- * Uses @discordjs/voice and play-dl for YouTube streaming
+ * Uses @discordjs/voice and yt-dlp for YouTube streaming (bypasses bot detection)
  */
 
+const { spawn } = require('child_process');
 const {
   joinVoiceChannel,
   createAudioPlayer,
   createAudioResource,
   AudioPlayerStatus,
   VoiceConnectionStatus,
-  getVoiceConnection
+  StreamType
 } = require('@discordjs/voice');
-const play = require('play-dl');
 
 const queues = new Map(); // guildId -> { connection, player, queue: [{title, url}], current, channel }
+
+function createYtDlpStream(url) {
+  const ytdlp = spawn('yt-dlp', [
+    '-f', 'bestaudio/best',
+    '-o', '-',
+    '--no-playlist',
+    '--no-warnings',
+    '--quiet',
+    url
+  ], { stdio: ['ignore', 'pipe', 'pipe'] });
+
+  const ffmpeg = spawn('ffmpeg', [
+    '-re', '-i', 'pipe:0',
+    '-acodec', 'libopus',
+    '-f', 'ogg',
+    '-ar', '48000',
+    '-ac', '2',
+    'pipe:1',
+    '-loglevel', 'quiet'
+  ], { stdio: ['pipe', 'pipe', 'pipe'] });
+
+  ytdlp.stdout.pipe(ffmpeg.stdin);
+  ytdlp.on('error', () => ffmpeg.kill());
+  ffmpeg.on('error', () => ytdlp.kill());
+
+  return ffmpeg.stdout;
+}
+
+async function resolveQuery(query) {
+  const isUrl = /^https?:\/\//.test(query.trim());
+  if (isUrl) {
+    const proc = spawn('yt-dlp', [
+      '--print', '%(title)s',
+      '--print', '%(url)s',
+      '--no-playlist',
+      '--no-warnings',
+      '--quiet',
+      query.trim()
+    ], { stdio: ['ignore', 'pipe', 'pipe'] });
+
+    const out = await new Promise((resolve, reject) => {
+      let data = '';
+      proc.stdout.on('data', c => data += c);
+      proc.on('close', (code) => {
+        if (code !== 0) reject(new Error('Failed to get video info'));
+        else resolve(data.trim());
+      });
+      proc.on('error', reject);
+    });
+
+    const lines = out.split('\n').filter(Boolean);
+    if (!lines.length) return null;
+    return { title: lines[0] || 'Unknown', url: lines[1] || query.trim() };
+  }
+
+  const proc = spawn('yt-dlp', [
+    'ytsearch1:' + query,
+    '--print', '%(title)s',
+    '--print', '%(url)s',
+    '--no-playlist',
+    '--no-warnings',
+    '--quiet'
+  ], { stdio: ['ignore', 'pipe', 'pipe'] });
+
+  const out = await new Promise((resolve, reject) => {
+    let data = '';
+    proc.stdout.on('data', c => data += c);
+    proc.on('close', (code) => {
+      if (code !== 0) reject(new Error('Search failed'));
+      else resolve(data.trim());
+    });
+    proc.on('error', reject);
+  });
+
+  const lines = out.split('\n').filter(Boolean);
+  if (!lines.length) return null;
+  return { title: lines[0] || 'Unknown', url: lines[1] };
+}
 
 function getOrCreateQueue(guildId, voiceChannel, textChannel) {
   if (queues.has(guildId)) {
@@ -67,8 +145,8 @@ async function playNext(guildId) {
   q.current = track;
 
   try {
-    const stream = await play.stream(track.url, { discordPlayerCompatibility: true });
-    const resource = createAudioResource(stream.stream, { inputType: stream.type });
+    const stream = createYtDlpStream(track.url);
+    const resource = createAudioResource(stream, { inputType: StreamType.OggOpus });
     q.player.play(resource);
   } catch (err) {
     if (q.textChannel) {
@@ -82,23 +160,14 @@ async function addTrack(guildId, voiceChannel, textChannel, query) {
   const q = getOrCreateQueue(guildId, voiceChannel, textChannel);
 
   try {
-    let info;
-    const isUrl = /^https?:\/\//.test(query.trim());
-    if (isUrl) {
-      const vi = await play.video_info(query);
-      if (!vi?.video_details) return { found: false, msg: 'Invalid or unsupported URL.' };
-      info = { title: vi.video_details.title, url: vi.video_details.url };
-    } else {
-      const search = await play.search(query, { limit: 1 });
-      if (!search || search.length === 0) return { found: false, msg: 'No results found.' };
-      info = search[0];
-    }
+    const info = await resolveQuery(query);
+    if (!info) return { found: false, msg: 'No results found.' };
     const track = { title: info.title || 'Unknown', url: info.url };
 
     if (q.player.state.status === AudioPlayerStatus.Idle && !q.current) {
       q.current = track;
-      const stream = await play.stream(track.url, { discordPlayerCompatibility: true });
-      const resource = createAudioResource(stream.stream, { inputType: stream.type });
+      const stream = createYtDlpStream(track.url);
+      const resource = createAudioResource(stream, { inputType: StreamType.OggOpus });
       q.player.play(resource);
       return { found: true, track, playing: true };
     } else {
