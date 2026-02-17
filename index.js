@@ -20,7 +20,7 @@
  */
 
 require('dotenv').config();
-const { Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags, Events } = require('discord.js');
+const { Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags, Events, ActivityType } = require('discord.js');
 
 // Validate required env vars before starting
 const token = process.env.DISCORD_TOKEN?.trim();
@@ -320,6 +320,23 @@ client.once(Events.ClientReady, async () => {
 
   log('info', `Streamers: ${streamers.length ? streamers.join(', ') : 'none (set TWITCH_USERNAME or use /addstreamer)'}`);
   log('info', `Channel: ${channelId || 'not set (set CHANNEL_ID or use /setchannel)'}`);
+
+  // Set bot activity with links if provided
+  const twitchLink = process.env.TWITCH_LINK?.trim();
+  const youtubeLink = process.env.YOUTUBE_LINK?.trim();
+  const discordLink = process.env.DISCORD_LINK?.trim();
+  const links = [];
+  if (twitchLink) links.push(`Twitch: ${twitchLink}`);
+  if (youtubeLink) links.push(`YouTube: ${youtubeLink}`);
+  if (discordLink) links.push(`Discord: ${discordLink}`);
+  
+  if (links.length > 0) {
+    const activityText = links.join(' | ');
+    // Discord activity text is limited to 128 characters
+    const displayText = activityText.length > 128 ? activityText.slice(0, 125) + '...' : activityText;
+    client.user.setActivity(displayText, { type: ActivityType.Watching });
+    log('info', `Set bot activity: ${displayText}`);
+  }
 
   const interval = (parseInt(process.env.CHECK_INTERVAL, 10) || 60) * 1000;
   setInterval(checkStreams, interval);
