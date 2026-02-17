@@ -1,4 +1,4 @@
-const { SlashCommandBuilder } = require('discord.js');
+const { SlashCommandBuilder, MessageFlags } = require('discord.js');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -6,7 +6,7 @@ module.exports = {
     .setDescription('List all Twitch streamers being monitored'),
 
   async execute(interaction, { loadConfig, log }) {
-    await interaction.deferReply({ ephemeral: true });
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
     const config = loadConfig();
     const streamers = config.streamers || [];

@@ -10,7 +10,9 @@ RUN npm ci --omit=dev 2>/dev/null || npm install --omit=dev
 
 COPY . .
 
-# Don't run as root
+# Ensure node user can write config.json (for slash commands)
+RUN chown -R node:node /app
+
 USER node
 
 CMD ["node", "index.js"]

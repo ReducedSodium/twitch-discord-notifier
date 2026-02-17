@@ -20,7 +20,7 @@
  */
 
 require('dotenv').config();
-const { Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags, Events } = require('discord.js');
 
 // Validate required env vars before starting
 const token = process.env.DISCORD_TOKEN?.trim();
@@ -202,6 +202,9 @@ async function checkStreams() {
 
   } catch (err) {
     log('error', 'Stream check failed', err.message);
+    if (err.message?.includes('invalid client')) {
+      log('info', 'Tip: Set CLIENT_ID and CLIENT_SECRET in your environment (Twitch Developer Console)');
+    }
   }
 }
 
@@ -226,7 +229,7 @@ async function registerCommands() {
   log('info', `Registered ${commands.length} slash commands`);
 }
 
-client.once('ready', async () => {
+client.once(Events.ClientReady, async () => {
   log('info', `Logged in as ${client.user.tag}`);
 
   await registerCommands();
@@ -253,6 +256,9 @@ client.once('ready', async () => {
       }
     } catch (e) {
       log('error', 'Startup stream check failed', e.message);
+      if (e.message?.includes('invalid client')) {
+        log('info', 'Tip: Set CLIENT_ID and CLIENT_SECRET from https://dev.twitch.tv/console/apps');
+      }
     }
   }
 
@@ -275,7 +281,7 @@ client.on('interactionCreate', async (interaction) => {
     if (cmd.execute) await cmd.execute(interaction, { loadConfig, saveConfig, log });
   } catch (err) {
     log('error', `Command ${interaction.commandName} failed`, err.message);
-    await interaction.reply({ content: 'An error occurred.', ephemeral: true }).catch(() => {});
+    await interaction.reply({ content: 'An error occurred.', flags: MessageFlags.Ephemeral }).catch(() => {});
   }
 });
 
