@@ -17,7 +17,7 @@ A Discord bot that monitors Twitch streamers and sends embed notifications when 
 
 - **Node.js** (latest LTS)
 - **discord.js** (v14)
-- **@discordjs/voice** + **play-dl** for music
+- **@discordjs/voice** + **yt-dlp** for music (bypasses YouTube bot detection)
 - **Twitch Helix API**
 - **dotenv** for environment variables
 - Native **fetch** (Node 18+)
