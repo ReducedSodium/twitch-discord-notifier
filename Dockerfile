@@ -1,4 +1,8 @@
-FROM node:20-alpine
+FROM node:20-slim
+
+# FFmpeg for music playback
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg \
+  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
