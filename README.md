@@ -111,6 +111,7 @@ npm start
 | `/ban <user>` | Ban a member (requires Ban Members) |
 | `/timeout <user> <minutes>` | Timeout a member (requires Moderate Members) |
 | `/purge <amount>` | Delete recent messages (requires Manage Messages) |
+| `/setauditchannel <channel>` | Set channel for command audit logs (requires Administrator) |
 
 ## Project Structure
 

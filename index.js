@@ -42,7 +42,7 @@ function loadConfig() {
   try {
     return JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
   } catch (e) {
-    return { streamers: [], channelId: null, roleId: null, liveMessageIds: {}, cooldownMinutes: 5 };
+    return { streamers: [], channelId: null, roleId: null, auditChannelId: null, liveMessageIds: {}, cooldownMinutes: 5 };
   }
 }
 
@@ -63,6 +63,33 @@ function log(level, message, data = null) {
 const client = new Client({
   intents: [GatewayIntentBits.Guilds]
 });
+
+async function sendAuditLog(interaction, success = true) {
+  const config = loadConfig();
+  const auditChannelId = config.auditChannelId;
+  if (!auditChannelId) return;
+
+  const channel = await client.channels.fetch(auditChannelId).catch(() => null);
+  if (!channel) return;
+
+  const opts = interaction.options.data.map(o => {
+    const val = o.user ? o.user.tag : o.role ? o.role.name : o.channel ? `#${o.channel.name}` : o.value;
+    return `${o.name}: ${val}`;
+  }).join('\n');
+
+  const embed = new EmbedBuilder()
+    .setColor(success ? 0x57F287 : 0xED4245)
+    .setTitle(`/${interaction.commandName}`)
+    .addFields(
+      { name: 'User', value: `${interaction.user.tag} (${interaction.user.id})`, inline: true },
+      { name: 'Channel', value: `${interaction.channel}`, inline: true },
+      { name: 'Status', value: success ? 'Success' : 'Failed', inline: true },
+      { name: 'Options', value: opts || '*none*', inline: false }
+    )
+    .setTimestamp();
+
+  await channel.send({ embeds: [embed] }).catch(() => {});
+}
 
 // State: streamer -> { notified: true, messageId: '...', lastNotify: timestamp }
 const liveState = new Map();
@@ -278,12 +305,16 @@ client.on('interactionCreate', async (interaction) => {
 
   if (!fs.existsSync(filePath)) return;
 
+  let success = true;
   try {
     const cmd = require(filePath);
     if (cmd.execute) await cmd.execute(interaction, { loadConfig, saveConfig, log });
   } catch (err) {
+    success = false;
     log('error', `Command ${interaction.commandName} failed`, err.message);
     await interaction.reply({ content: 'An error occurred.', flags: MessageFlags.Ephemeral }).catch(() => {});
+  } finally {
+    sendAuditLog(interaction, success);
   }
 });
 
