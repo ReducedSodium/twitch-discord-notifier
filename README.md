@@ -17,9 +17,11 @@ A Discord bot that monitors Twitch streamers and sends embed notifications when 
 
 - **Node.js** (latest LTS)
 - **discord.js** (v14)
+- **@discordjs/voice** + **play-dl** for music
 - **Twitch Helix API**
 - **dotenv** for environment variables
 - Native **fetch** (Node 18+)
+- **FFmpeg** (required for music – install on your system)
 
 ## Quick Start
 
@@ -78,6 +80,7 @@ npm start
    - Mention Everyone (to ping roles)  
    - Use Slash Commands  
    - Kick Members, Ban Members, Moderate Members, Manage Messages (for moderation commands)  
+   - Connect, Speak (for music commands)  
 5. Copy the generated URL and open it in a browser to invite the bot to your server
 
 ### Getting Guild ID, Channel ID, and Role ID
@@ -112,6 +115,12 @@ npm start
 | `/timeout <user> <minutes>` | Timeout a member (requires Moderate Members) |
 | `/purge <amount>` | Delete recent messages (requires Manage Messages) |
 | `/setauditchannel <channel>` | Set channel for command audit logs (requires Administrator) |
+| `/play <query>` | Play a song from YouTube |
+| `/skip` | Skip current song |
+| `/stop` | Stop and disconnect |
+| `/queue` | Show music queue |
+| `/pause` | Pause playback |
+| `/resume` | Resume playback |
 
 ## Project Structure
 

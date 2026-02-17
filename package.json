@@ -16,7 +16,9 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "@discordjs/voice": "^0.17.0",
     "discord.js": "^14.14.1",
-    "dotenv": "^16.3.1"
+    "dotenv": "^16.3.1",
+    "play-dl": "^1.9.7"
   }
 }

@@ -61,7 +61,7 @@ function log(level, message, data = null) {
 }
 
 const client = new Client({
-  intents: [GatewayIntentBits.Guilds]
+  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildVoiceStates]
 });
 
 async function sendAuditLog(interaction, success = true) {
