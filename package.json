@@ -1,0 +1,22 @@
+{
+  "name": "twitch-discord-notifier",
+  "version": "1.0.0",
+  "description": "Discord bot that sends notifications when Twitch streamers go live",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node index.js"
+  },
+  "keywords": [
+    "discord",
+    "twitch",
+    "stream",
+    "notification"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "discord.js": "^14.14.1",
+    "dotenv": "^16.3.1"
+  }
+}
