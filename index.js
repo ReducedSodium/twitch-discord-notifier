@@ -21,6 +21,16 @@
 
 require('dotenv').config();
 const { Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+
+// Validate required env vars before starting
+const token = process.env.DISCORD_TOKEN?.trim();
+const placeholder = 'your_discord_bot_token';
+if (!token || token === placeholder) {
+  console.error('[ERROR] DISCORD_TOKEN is not set or still has the placeholder value.');
+  console.error('Set DISCORD_TOKEN in your .env file (local) or in your hosting platform\'s environment variables (containers).');
+  console.error('Get your bot token from: https://discord.com/developers/applications -> Your App -> Bot -> Reset Token');
+  process.exit(1);
+}
 const twitch = require('./twitch.js');
 const fs = require('fs');
 const path = require('path');
@@ -269,7 +279,10 @@ client.on('interactionCreate', async (interaction) => {
   }
 });
 
-client.login(process.env.DISCORD_TOKEN).catch(err => {
+client.login(token).catch(err => {
   log('error', 'Login failed', err.message);
+  if (err.message?.includes('invalid token')) {
+    console.error('[TIP] Reset your token at Discord Developer Portal -> Bot -> Reset Token, then update DISCORD_TOKEN.');
+  }
   process.exit(1);
 });

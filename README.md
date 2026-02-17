@@ -125,6 +125,13 @@ twitch-discord-notifier/
 └── README.md
 ```
 
+## Container Deployment (Docker / Railway / Render)
+
+A `Dockerfile` is included. When running in a container, **set environment variables in your hosting platform** — the `.env` file is not used in Docker builds.
+
+1. Add `DISCORD_TOKEN`, `CLIENT_ID`, `CLIENT_SECRET`, `GUILD_ID`, `CHANNEL_ID`, `ROLE_ID` in your platform's environment variable settings.
+2. Build and run (or let the platform auto-detect the Dockerfile).
+
 ## How It Works
 
 1. Every `CHECK_INTERVAL` seconds, the bot polls the Twitch Helix API for all monitored streamers.
