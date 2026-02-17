@@ -68,6 +68,7 @@ const client = new Client({
 const liveState = new Map();
 // Cooldown: streamer -> timestamp until we can send again (survives going offline)
 const cooldownUntil = new Map();
+let hasLoggedNoConfig = false;
 
 function buildEmbed(streamInfo) {
   const thumb = (streamInfo.thumbnail_url || '').replace('{width}', '1280').replace('{height}', '720');
@@ -112,12 +113,17 @@ async function sendLiveNotification(client, channelId, roleId, streamInfo) {
   const mention = roleId ? `<@&${roleId}>` : '';
   const content = mention ? `${mention} **${streamInfo.user_name}** is now live!` : `**${streamInfo.user_name}** is now live!`;
 
-  const msg = await channel.send({
-    content,
-    embeds: [embed],
-    components: [row]
-  });
-  return msg.id;
+  try {
+    const msg = await channel.send({
+      content,
+      embeds: [embed],
+      components: [row]
+    });
+    return msg.id;
+  } catch (err) {
+    log('error', `Failed to send message to channel: ${err.message}`);
+    return null;
+  }
 }
 
 async function editLiveMessage(client, channelId, messageId, streamInfo) {
@@ -153,13 +159,16 @@ async function checkStreams() {
   const roleId = config.roleId || process.env.ROLE_ID?.trim();
 
   if (!channelId || streamers.length === 0) {
-    if (streamers.length === 0) log('info', 'No streamers to check (use /addstreamer or set TWITCH_USERNAME)');
-    if (!channelId) log('info', 'No channel set (use /setchannel or set CHANNEL_ID)');
+    if (!hasLoggedNoConfig) {
+      if (streamers.length === 0) log('error', 'No streamers configured. Use /addstreamer or set TWITCH_USERNAME in env.');
+      if (!channelId) log('error', 'No channel configured. Use /setchannel or set CHANNEL_ID in env.');
+      hasLoggedNoConfig = true;
+    }
     return;
   }
 
-  const clientId = process.env.CLIENT_ID;
-  const clientSecret = process.env.CLIENT_SECRET;
+  const clientId = process.env.CLIENT_ID?.trim();
+  const clientSecret = process.env.CLIENT_SECRET?.trim();
   if (!clientId || !clientSecret) {
     log('error', 'Missing CLIENT_ID or CLIENT_SECRET');
     return;
@@ -168,6 +177,12 @@ async function checkStreams() {
   try {
     const streams = await twitch.getStreams(clientId, clientSecret, streamers);
     const liveLogins = new Set((streams || []).map(s => s.user_login.toLowerCase()));
+
+    if (streams?.length > 0) {
+      log('info', `Found ${streams.length} live: ${streams.map(s => s.user_login).join(', ')}`);
+    } else if (process.env.DEBUG) {
+      log('info', `Checked ${streamers.join(', ')} - none live`);
+    }
     const cooldownMin = config.cooldownMinutes || 5;
     const cooldownMs = cooldownMin * 60 * 1000;
 
