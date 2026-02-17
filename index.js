@@ -138,16 +138,25 @@ async function editLiveMessage(client, channelId, messageId, streamInfo) {
   await msg.edit({ embeds: [embed], components: [row] }).catch(() => {});
 }
 
+function getStreamerList(config) {
+  if (config.streamers?.length > 0) return config.streamers;
+  const env = process.env.TWITCH_USERNAME?.trim();
+  if (!env) return [];
+  return env.split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+}
+
 async function checkStreams() {
   const config = loadConfig();
-  const streamers = config.streamers && config.streamers.length > 0
-    ? config.streamers
-    : (process.env.TWITCH_USERNAME ? [process.env.TWITCH_USERNAME] : []);
+  const streamers = getStreamerList(config);
 
-  const channelId = config.channelId || process.env.CHANNEL_ID;
-  const roleId = config.roleId || process.env.ROLE_ID;
+  const channelId = config.channelId || process.env.CHANNEL_ID?.trim();
+  const roleId = config.roleId || process.env.ROLE_ID?.trim();
 
-  if (!channelId || streamers.length === 0) return;
+  if (!channelId || streamers.length === 0) {
+    if (streamers.length === 0) log('info', 'No streamers to check (use /addstreamer or set TWITCH_USERNAME)');
+    if (!channelId) log('info', 'No channel set (use /setchannel or set CHANNEL_ID)');
+    return;
+  }
 
   const clientId = process.env.CLIENT_ID;
   const clientSecret = process.env.CLIENT_SECRET;
@@ -167,12 +176,11 @@ async function checkStreams() {
       const state = liveState.get(login);
       const streamInfo = await twitch.getStreamInfo(clientId, clientSecret, stream);
 
-      if (state) {
-        if (config.liveMessageIds && config.liveMessageIds[login]) {
-          await editLiveMessage(client, channelId, config.liveMessageIds[login], streamInfo);
-          log('info', `Updated live embed for ${stream.user_name}`);
-        }
-      } else {
+      const messageId = config.liveMessageIds?.[login];
+      if (state && messageId) {
+        await editLiveMessage(client, channelId, messageId, streamInfo);
+        log('info', `Updated live embed for ${stream.user_name}`);
+      } else if (!state || !messageId) {
         if (cooldownUntil.get(login) && Date.now() < cooldownUntil.get(login)) {
           log('info', `Cooldown active for ${stream.user_name}, skipping`);
           continue;
@@ -235,32 +243,11 @@ client.once(Events.ClientReady, async () => {
   await registerCommands();
 
   const config = loadConfig();
-  const streamers = config.streamers?.length > 0
-    ? config.streamers
-    : (process.env.TWITCH_USERNAME ? [process.env.TWITCH_USERNAME] : []);
+  const streamers = getStreamerList(config);
+  const channelId = config.channelId || process.env.CHANNEL_ID?.trim();
 
-  if (streamers.length > 0) {
-    const clientId = process.env.CLIENT_ID;
-    const clientSecret = process.env.CLIENT_SECRET;
-    try {
-      const streams = await twitch.getStreams(clientId, clientSecret, streamers);
-      for (const s of streams || []) {
-        liveState.set(s.user_login.toLowerCase(), {
-          notified: true,
-          messageId: config.liveMessageIds?.[s.user_login.toLowerCase()],
-          lastNotify: Date.now()
-        });
-      }
-      if (streams?.length > 0) {
-        log('info', `Startup: ${streams.length} streamer(s) already live, will not re-notify`);
-      }
-    } catch (e) {
-      log('error', 'Startup stream check failed', e.message);
-      if (e.message?.includes('invalid client')) {
-        log('info', 'Tip: Set CLIENT_ID and CLIENT_SECRET from https://dev.twitch.tv/console/apps');
-      }
-    }
-  }
+  log('info', `Streamers: ${streamers.length ? streamers.join(', ') : 'none (set TWITCH_USERNAME or use /addstreamer)'}`);
+  log('info', `Channel: ${channelId || 'not set (set CHANNEL_ID or use /setchannel)'}`);
 
   const interval = (parseInt(process.env.CHECK_INTERVAL, 10) || 60) * 1000;
   setInterval(checkStreams, interval);
